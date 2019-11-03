@@ -7,6 +7,7 @@ import sys
 import argparse
 import collections
 from mqtt_ble_deduplicator import dedup
+import time
 
 parser = argparse.ArgumentParser(description='Read one MQTT topic, deduplicate messages (compare source address and data content), post deduplicated messages to another topic.')
 parser.add_argument('--quiet', dest='quiet', action='store_const',
@@ -20,6 +21,7 @@ mqtt_target_topic = os.environ.get("MQTT_TARGET_TOPIC", "/home/ble-deduped")
 
 client = MQTTClient()
 
+last_activity_timestamp = time.time()
 dedup_buffers = collections.defaultdict(lambda: collections.defaultdict(lambda: dedup.Deduplicator()))
 async def main():
     try:
@@ -40,7 +42,7 @@ async def main():
             message = await client.deliver_message()
             data = message.data
 
-            ble_msg = json.loads(data)
+            ble_msg = json.loads(data.decode('utf-8'))
 
             message_receiver = ble_msg['receiver_mac']
             mac = ble_msg['address']['address']
@@ -71,6 +73,8 @@ async def main():
             else:
                 normals += 1
                 # print("Got first instance from %s, mac: %s" %( message_receiver, mac), content.encode('iso-8859-1').hex())
+                global last_activity_timestamp
+                last_activity_timestamp = time.time()
                 await client.publish(mqtt_target_topic, data)
 
             counter += 1
@@ -79,6 +83,20 @@ async def main():
                 print("Processed %d, duplicates: %d" %(counter, duplicates))
         except Exception as e:
             print("MQTT error", e)
-        
+
+ACTIVITY_TIMEOUT = 30
+async def watchdog():
+    print("Starting watchdog")
+    while True:
+        now = time.time()
+        since_last_activity = (now - last_activity_timestamp)
+
+        if since_last_activity > ACTIVITY_TIMEOUT:
+            print("No non-duplicate messages in %d seconds, exiting" %ACTIVITY_TIMEOUT)
+            sys.exit(1)
+
+        await asyncio.sleep(1)
+
+asyncio.ensure_future(watchdog())
 asyncio.ensure_future(main())
 asyncio.get_event_loop().run_forever()
