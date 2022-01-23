@@ -14,6 +14,7 @@ def test__add__when_full__item_purged_from_deduplicator():
     deduper.add("foo")
     deduper.add("bar")
     assert deduper.check("foo") == False
+    assert len(deduper) == 1
 
 def test__add__on_purge__removes_first_item():
     deduper = dedup.Deduplicator(max_size=2)
@@ -23,3 +24,4 @@ def test__add__on_purge__removes_first_item():
     assert deduper.check("xyzzy") == True
     assert deduper.check("bar") == True
     assert deduper.check("foo") == False
+    assert len(deduper) == 2

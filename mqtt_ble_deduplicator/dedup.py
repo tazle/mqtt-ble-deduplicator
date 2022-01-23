@@ -10,6 +10,8 @@ class Deduplicator(object):
         if len(self.buffer) == self.max_size:
             removed = self.buffer.popleft()
             self.checker[removed] -= 1
+            if self.checker[removed] == 0:
+                del self.checker[removed]
         self.buffer.append(data)
         self.checker[data] += 1
 
@@ -18,3 +20,6 @@ class Deduplicator(object):
 
     def __str__(self):
         return "Dedup(buffer: " + str(self.buffer) + ", checker: " + str(self.checker) + ")"
+
+    def __len__(self):
+        return max(len(self.buffer), len(self.checker))
