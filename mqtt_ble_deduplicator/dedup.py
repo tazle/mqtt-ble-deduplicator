@@ -14,4 +14,7 @@ class Deduplicator(object):
         self.checker[data] += 1
 
     def check(self, data):
-        return data in self.checker
+        return self.checker[data] > 0
+
+    def __str__(self):
+        return "Dedup(buffer: " + str(self.buffer) + ", checker: " + str(self.checker) + ")"
