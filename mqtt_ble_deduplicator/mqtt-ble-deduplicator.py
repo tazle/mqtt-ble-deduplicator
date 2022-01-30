@@ -13,17 +13,23 @@ parser = argparse.ArgumentParser(description='Read one MQTT topic, deduplicate m
 parser.add_argument('--quiet', dest='quiet', action='store_const',
                     const=True, default=False,
                     help="Quiet mode, don't print messages to stdout")
-args = parser.parse_args()
 
-mqtt_url = os.environ.get("MQTT_URL", "mqtt://localhost/")
 mqtt_source_topic = os.environ.get("MQTT_SOURCE_TOPIC", "/home/ble")
 mqtt_target_topic = os.environ.get("MQTT_TARGET_TOPIC", "/home/ble-deduped")
 
+args = parser.parse_args()
 client = MQTTClient()
 
 last_activity_timestamp = time.time()
 dedup_buffers = collections.defaultdict(lambda: collections.defaultdict(lambda: dedup.Deduplicator()))
+
+def debug(*args):
+    if os.environ.get("BLE_DEBUG", None) != None:
+        print(*args, file=sys.stdout)
+
 async def main():
+    mqtt_url = os.environ.get("MQTT_URL", "mqtt://localhost/")
+    print("Connecting to", mqtt_url)
     try:
         await client.connect(mqtt_url)
         print("Connected")
@@ -68,11 +74,11 @@ async def main():
         try:
             if duplicate:
                 duplicates += 1
-                # print("Got duplicate from %s, previous receivers: %s, mac: %s" %(message_receiver, duplicate_receiver, mac), content.encode('iso-8859-1').hex())
+                debug("Got duplicate from %s, previous receivers: %s, mac: %s" %(message_receiver, duplicate_receiver, mac), content.encode('iso-8859-1').hex())
                 pass
             else:
                 normals += 1
-                # print("Got first instance from %s, mac: %s" %( message_receiver, mac), content.encode('iso-8859-1').hex())
+                debug("Got first instance from %s, mac: %s" %( message_receiver, mac), content.encode('iso-8859-1').hex())
                 global last_activity_timestamp
                 last_activity_timestamp = time.time()
                 await client.publish(mqtt_target_topic, data)
@@ -97,6 +103,10 @@ async def watchdog():
 
         await asyncio.sleep(1)
 
-asyncio.ensure_future(watchdog())
-asyncio.ensure_future(main())
-asyncio.get_event_loop().run_forever()
+def init():
+    asyncio.ensure_future(watchdog())
+    asyncio.ensure_future(main())
+    asyncio.get_event_loop().run_forever()
+
+if __name__ == '__main__':
+    init()
