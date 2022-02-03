@@ -1,5 +1,5 @@
-from hbmqtt.client import MQTTClient, ConnectException, ClientException
-from hbmqtt.mqtt.constants import QOS_0
+from amqtt.client import MQTTClient, ConnectException, ClientException
+from amqtt.mqtt.constants import QOS_0
 import os
 import json
 import asyncio
